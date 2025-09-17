@@ -25,11 +25,22 @@ class UserController extends Controller
     protected UserServiceInterface $userService;
     public function __construct(UserServiceInterface $userService){
         $this->userService = $userService;
+
+        $this->middleware('auth:sanctum');
+        $this->middleware(['auth:sanctum'])->only(['show', 'update', 'destroy', 'restore', 'forceDelete']);
+
     }
 
     public function index(StoreUserRequest $request)
     {
        try {
+
+         if (!auth()->check()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
             $users = $this->userService->getAllUsers($request);
 
             return response()->json([
@@ -37,7 +48,7 @@ class UserController extends Controller
                 'message' => 'Users retrieved successfully',
                 'data' => new UserCollection($users)
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve users',
@@ -45,7 +56,6 @@ class UserController extends Controller
             ], 500);
         }
     }
-
 
     /**
      * Store a newly created resource in storage.
@@ -75,6 +85,13 @@ class UserController extends Controller
     public function show(int $id)
     {
       try {
+
+         if (!auth()->check()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated'
+                ], 401);
+            }
         //lay user theo id nguoi dung , kiem tra role ,
             $user = $this->userService->getUserById(
                 $id,

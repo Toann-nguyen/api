@@ -29,7 +29,7 @@ class UserService implements UserServiceInterface
         $filters = $request->validated();
         $perPage = $request->get('per_page', 15);
 
-        return $this->userRepository->paginate($filters, $perPage);
+        return $this->userRepository->paginate(15, []);
     }
 
     /**

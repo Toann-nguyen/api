@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthSatum;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -17,11 +18,22 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        $middleware->alias([
+        'auth.satum' => AuthSatum::class,
+    ]);
+        $middleware->api(prepend: [  // Thêm vào api group để tự động auth token
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,  // Nếu dùng SPA, bỏ nếu pure API
+            'throttle:api',
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            'auth:sanctum',  // Thêm dòng này để enable auth cho tất cả api routes
+        ]);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
