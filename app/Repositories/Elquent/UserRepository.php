@@ -37,6 +37,11 @@ class UserRepository implements UserRepositoryInterface
     public function delete(int $id)
     {
         $user = $this->find($id);
+        if(!$user){
+            return response()->json([
+                'message' => 'cant not found user'
+            ]);
+        }
         return $user->delete();
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Interface\UserServiceInterface;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
@@ -10,6 +11,7 @@ use App\Http\Resources\UserCollection;
 use App\Http\Resources\UserResource;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Elquent\UserRepository;
+use Exception;
 use Illuminate\Container\Attributes\Storage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,48 +22,51 @@ class UserController extends Controller
      * Display a listing of the resource.
      */
     // DI (dependency ...)
-    protected UserRepositoryInterface $userRepository;
-    public function __construct(UserRepositoryInterface $userRepository){
-        $this->userRepository = $userRepository;
+    protected UserServiceInterface $userService;
+    public function __construct(UserServiceInterface $userService){
+        $this->userService = $userService;
     }
 
-    public function index(Request $request)
+    public function index(StoreUserRequest $request)
     {
-        $filters = $request->only(['search , status']);
-        $perPage = $request->get('per_page',15);
+       try {
+            $users = $this->userService->getAllUsers($request);
 
-        $users = $this->userRepository->paginate($perPage, $filters);
-
-         return response()->json([
-            'success' => true,
-            'message' => 'Users retrieved successfully',
-            'data' => new UserCollection($users)
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Users retrieved successfully',
+                'data' => new UserCollection($users)
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve users',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
 
     /**
      * Store a newly created resource in storage.
      */
     public function store(StoreUserRequest $request)
     {
-        // validation request da . chi lay 1 so truong can thiet trong request
-        $data = $request->validated();
+       try {
+            $user = $this->userService->createUser($request);
 
-        $user = $this->userRepository->create($data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User created successfully',
-            'data' => new UserResource($user)
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'User created successfully',
+                'data' => new UserResource($user)
+            ], 201);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create user',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -69,23 +74,27 @@ class UserController extends Controller
      */
     public function show(int $id)
     {
-       $user = $this->userRepository->find($id);
-       if(!$user){
-        return response()->json(['message' => 'User not fount']);
-       }
-        return response()->json([
-            'success' => true,
-            'message' => 'okay user',
-            'data' => new UserResource($user),
-        ]);
-    }
+      try {
+        //lay user theo id nguoi dung , kiem tra role ,
+            $user = $this->userService->getUserById(
+                $id,
+                auth()->id(),
+                auth()->user()->role
+            );
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(User $user)
-    {
-        //
+            return response()->json([
+                'success' => true,
+                'message' => 'User retrieved successfully',
+                'data' => new UserResource($user)
+            ]);
+        } catch (Exception $e) {
+            $statusCode = $e->getCode() ?: 500;
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], $statusCode);
+        }
     }
 
     /**
@@ -93,37 +102,27 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, int $id)
     {
-        // can them check quyen la admin  khong . Hien tai chua co
-         $user = $this->userRepository->find($id);
+          try {
+            $user = $this->userService->updateUser(
+                $request,
+                $id,
+                auth()->id(),
+                auth()->user()->role
+            );
 
-        // Users can only update their own profile unless they're admin/moderator
-        if (!auth()->user()->isAdmin() &&
-            !in_array(auth()->user()->role, ['admin', 'moderator']) &&
-            auth()->id() !== $user->id) {
+            return response()->json([
+                'success' => true,
+                'message' => 'User updated successfully',
+                'data' => new UserResource($user)
+            ]);
+        } catch (Exception $e) {
+            $statusCode = $e->getCode() ?: 500;
+
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient permissions'
-            ], 403);
+                'message' => $e->getMessage()
+            ], $statusCode);
         }
-        $data = $request->validated();
-
-        // Handle avatar upload
-        if ($request->hasFile('avatar')) {
-            // Delete old avatar
-            if ($user->avatar) {
-                Storage::disk('public')->delete($user->avatar);
-            }
-            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
-        }
-
-        $user = $this->userRepository->update($id, $data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'User updated successfully',
-            'data' => new UserResource($user)
-        ]);
-
     }
 
     /**
@@ -133,29 +132,57 @@ class UserController extends Controller
 
     public function destroy(int $id)
     {
-        $this->userRepository->delete($id);
+        try {
+            $this->userService->deleteUser($id);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User deleted successfully'
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'User deleted successfully'
+            ]);
+        } catch (Exception $e) {
+            $statusCode = $e->getCode() ?: 500;
 
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], $statusCode);
+        }
     }
     public function restore(int $id)
     {
-       $this->userRepository->restore($id);
+        try {
+            $this->userService->restoreUser($id);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User restored successfully'
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'User restored successfully'
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to restore user',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
     public function forceDelete(int $id)
     {
-        if (!$this->userRepository->forceDelete($id)) {
-            return response()->json(['message' => 'Failed to force delete user'], 500);
+        try {
+            $this->userService->forceDeleteUser($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'User permanently deleted'
+            ]);
+        } catch (Exception $e) {
+            $statusCode = $e->getCode() ?: 500;
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], $statusCode);
         }
-        return response()->json(['message' => 'User permanently deleted']);
     }
+
 
 }
