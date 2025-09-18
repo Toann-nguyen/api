@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Request;
+use LDAP\Result;
 
 class UserService implements UserServiceInterface
 {
@@ -23,13 +25,13 @@ class UserService implements UserServiceInterface
     {
         $this->userRepository = $userRepository;
     }
-    public function getAllUsers(StoreUserRequest $request)
+    public function getAllUsers(Request $request)
     {
 
-        $filters = $request->validated();
+        $filters = $request->all(); // Get all query parameters
         $perPage = $request->get('per_page', 15);
 
-        return $this->userRepository->paginate(15, []);
+        return $this->userRepository->paginate($perPage, $filters);
     }
 
     /**
@@ -166,5 +168,19 @@ class UserService implements UserServiceInterface
             DB::rollback();
             throw $e;
         }
+    }
+
+    // THÊM PHƯƠNG THỨC THIẾU
+    private function canUpdateUser($user, $currentUserId, $currentUserRole)
+    {
+        if ($currentUserRole === 'admin') {
+            return true;
+        }
+
+        if ($currentUserId === $user->id) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -27,20 +27,20 @@ class UserController extends Controller
         $this->userService = $userService;
 
         $this->middleware('auth:sanctum');
-        $this->middleware(['auth:sanctum'])->only(['show', 'update', 'destroy', 'restore', 'forceDelete']);
+        // $this->middleware(['auth:sanctum'])->only(['index','show', 'update', 'destroy', 'restore', 'forceDelete']);
 
     }
 
-    public function index(StoreUserRequest $request)
+    public function index(Request $request)
     {
-       try {
-
-         if (!auth()->check()) {
+    try {
+            if (!auth()->check()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthenticated'
                 ], 401);
             }
+
             $users = $this->userService->getAllUsers($request);
 
             return response()->json([

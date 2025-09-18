@@ -22,6 +22,6 @@ Route::post('/login', [AuthController::class, 'login']);
 //     Route::apiResource('/users', UserController::class);
 // });
 
-Route::middleware(['auth.satum' , 'satum'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/users', [UserController::class, 'index']);
 });

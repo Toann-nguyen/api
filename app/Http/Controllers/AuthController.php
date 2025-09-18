@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
 use App\Models\User;
+use Auth;
 use Exception;
 use Hash;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Auth;
+
 class AuthController extends Controller
 {
     // tao token de thuc hien cac chuc nang khac nhu getAll
@@ -40,36 +42,42 @@ class AuthController extends Controller
     }
     public function login(Request $request)
     {
-        try{
-          $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+          try {
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string',
             ]);
-        }
 
+            if (!Auth::attempt($request->only('email', 'password'))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
 
-        $user = Auth::user();
-        $token = $user->createToken('api-token')->plainTextToken;
-        return response()->json([
-            'success' => true,
-            'message' => 'Login successful',
-            'data' => [
-                'user' => $user,
-                'token' => $token
-            ]
-        ]);
-        }catch(Exception $e){
-            dd($e);
+            $user = Auth::user();
+            $token = $user->createToken('api-token')->plainTextToken;
+
             return response()->json([
                 'success' => true,
-                'message' => 'cant not login',
-                'error' => $e->getMessage(),
+                'message' => 'Login successful',
+                'data' => [
+                    'user' => $user,
+                    'token' => $token
+                ]
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Login failed',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
     public function logout(Request $request)

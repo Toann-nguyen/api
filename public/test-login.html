@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login API</title>
+</head>
+<body>
+    <h1>Test /api/login</h1>
+    <form id="loginForm">
+        <label>Email:</label><br>
+        <input type="email" id="email" value="admin@example.com" required><br><br>
+        <label>Password:</label><br>
+        <input type="password" id="password" value="123" required><br><br>
+        <button type="submit">Login</button>
+    </form>
+    <div id="response"></div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();  // Ngăn form submit mặc định
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Bước 1: Lấy CSRF cookie từ Sanctum (set XSRF-TOKEN tự động)
+                await fetch('http://127.0.0.1:8000/sanctum/csrf-cookie', {
+                    method: 'GET',
+                    credentials: 'include'  // Quan trọng: Include cookies
+                });
+
+                // Lấy XSRF-TOKEN từ cookie (hoặc dùng document.cookie)
+                const xsrfToken = document.cookie.split('; ').find(row => row.startsWith('XSRF-TOKEN=')).split('=')[1];
+                const decodedToken = decodeURIComponent(xsrfToken);  // Decode nếu cần
+
+                // Bước 2: Gửi login với CSRF token
+                const res = await fetch('http://127.0.0.1:8000/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-XSRF-TOKEN': decodedToken  // Thêm header CSRF
+                    },
+                    credentials: 'include',  // Include cookies nếu cần
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+                document.getElementById('response').innerHTML = `
+                    <h2>Response:</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    ${res.ok ? '<p style="color: green;">Thành công! Copy token để dùng cho /api/users.</p>' : '<p style="color: red;">Lỗi: ' + (data.message || data.error) + '</p>'}
+                `;
+            } catch (error) {
+                document.getElementById('response').innerHTML = '<p style="color: red;">Lỗi kết nối: ' + error.message + '</p>';
+            }
+        });
+    </script>
+</body>
+</html>

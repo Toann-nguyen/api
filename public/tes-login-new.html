@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login API</title>
+</head>
+<body>
+    <h1>Test /api/login</h1>
+
+    <form id="loginForm">
+        <label>Email:</label><br>
+        <input type="email" id="email" value="admin@example.com" required><br><br>
+
+        <label>Password:</label><br>
+        <input type="password" id="password" value="123" required><br><br>
+
+        <button type="submit">Login</button>
+    </form>
+
+    <div id="response"></div>
+
+    <hr>
+
+    <div id="testUsers">
+        <h3>Test Users (check database):</h3>
+        <p>Admin: admin@example.com / 123</p>
+        <p>Toan: toan@example.com / 111</p>
+        <button onclick="testUsers()">Test Get Users (need token)</button>
+        <div id="usersResponse"></div>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                document.getElementById('response').innerHTML = `
+                    <h2>Login Response:</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p style="color: ${res.ok ? 'green' : 'red'};">
+                        ${res.ok ? 'Success! Token saved for testing users.' : 'Failed: ' + (data.message || 'Unknown error')}
+                    </p>
+                `;
+
+                if (res.ok && data.data && data.data.token) {
+                    authToken = data.data.token;
+                }
+
+            } catch (error) {
+                document.getElementById('response').innerHTML = `
+                    <p style="color: red;">Connection Error: ${error.message}</p>
+                `;
+            }
+        });
+
+        async function testUsers() {
+            if (!authToken) {
+                document.getElementById('usersResponse').innerHTML = '<p style="color: red;">Please login first to get token!</p>';
+                return;
+            }
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/users', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await res.json();
+
+                document.getElementById('usersResponse').innerHTML = `
+                    <h3>Users Response:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p style="color: ${res.ok ? 'green' : 'red'};">
+                        ${res.ok ? 'Success!' : 'Failed: ' + (data.message || 'Unknown error')}
+                    </p>
+                `;
+
+            } catch (error) {
+                document.getElementById('usersResponse').innerHTML = `
+                    <p style="color: red;">Connection Error: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
